@@ -1,0 +1,33 @@
+#!/bin/bash
+
+err() {
+    echo "$1"
+    exit 1
+}
+
+set -e
+if [ -n "$1" ]; then
+    output="$1"
+    shift
+else
+    err 'No output file specified'
+fi
+if [ -z "$2" ]; then
+    dev=/dev/sr0
+else
+    dev="$2"
+    shift
+fi
+echo "Device is $dev"
+printf 'Finding mount point...'
+mpoint=`mount | grep $dev | awk '{$1=$2=$(NF-2)=$(NF-1)=$NF="";gsub(/^ +| +$/, "", $0);print;}' | head -1`
+[ -z "$mpoint" ] && err "cannot find mount point for device"
+echo "$mpoint"
+echo 'Locating VOB files...'
+vobs=`find "$mpoint" -iname \*.vob`
+echo 'VOB files are:'
+echo "$vobs"
+cvobs=`echo "$vobs" | tr '\n' '|'`
+echo 'Calling ffmpeg...'
+set -x
+ffmpeg -i "concat:$cvobs" -map 0:v -map 0:a "$output" "$@"
